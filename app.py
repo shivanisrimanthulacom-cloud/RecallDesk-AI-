@@ -1,73 +1,186 @@
 
 import streamlit as st
-from hindsight_client import Hindsight
-
-# ---------------- CONFIGURATION ----------------
+import re
 
 st.set_page_config(
     page_title="RecallDesk AI",
-    page_icon="💬",
+    page_icon="🧠",
     layout="wide"
 )
 
-st.title("💬 RecallDesk AI")
-st.caption("AI Customer Support Chatbot with Long-Term Memory")
-
-# ---------------- HINDSIGHT CONNECTION ----------------
-
-@st.cache_resource
-def get_hindsight_client():
-    return Hindsight(
-        base_url=st.secrets["HINDSIGHT_BASE_URL"],
-        api_key=st.secrets["HINDSIGHT_API_KEY"],
-    )
-
-
-try:
-    hindsight = get_hindsight_client()
-    BANK_ID = st.secrets["HINDSIGHT_BANK_ID"]
-except Exception as e:
-    st.error(
-        "Hindsight configuration is incomplete. "
-        "Please check your Streamlit Secrets settings."
-    )
-    st.stop()
-
-# ---------------- SESSION STATE ----------------
-
+# Demo memory stored only in the current session
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# ---------------- SIDEBAR ----------------
+if "memories" not in st.session_state:
+    st.session_state.memories = {}
+
+
+st.title("🧠 RecallDesk AI")
+st.caption(
+    "Customer support assistant with memory — interactive demo prototype"
+)
+
 
 with st.sidebar:
-    st.header("🧠 RecallDesk Memory")
-    st.write(
-        "Customer details are stored in your Hindsight "
-        "memory bank and can be recalled in future chats."
+    st.subheader("Memory status")
+    st.warning(
+        "Demo memory active · Hindsight Cloud is not connected."
     )
+    st.caption("Memories last only during this app session.")
 
-    if st.button("🗑️ Clear Chat"):
+    if st.button("Clear chat and demo memory", use_container_width=True):
         st.session_state.messages = []
+        st.session_state.memories = {}
         st.rerun()
 
     st.divider()
-    st.caption("Memory provider: Hindsight Cloud")
+    st.subheader("Customer memory")
 
-# ---------------- CHAT HISTORY ----------------
+    if st.session_state.memories:
+        for key, value in st.session_state.memories.items():
+            st.markdown(f"**{key.title()}**")
+            st.write(value)
+    else:
+        st.info("No customer details saved yet.")
 
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
 
-# ---------------- CHAT INPUT ----------------
+def respond(message: str) -> str:
+    low = message.lower().strip()
+    memories = st.session_state.memories
 
-prompt = st.chat_input(
-    "Ask a question or share your order details..."
-)
+    # Save customer name
+    name_match = re.search(
+        r"\bmy name is\s+([A-Za-z][A-Za-z '-]{0,30})",
+        message,
+        re.I
+    )
+
+    if name_match:
+        name = name_match.group(1).strip().rstrip(".!,")
+        memories["name"] = name
+
+    # Save support preference
+    pref_match = re.search(
+        r"\bi prefer\s+(email|phone|telephone|chat|text|whatsapp)\b",
+        message,
+        re.I
+    )
+
+    if pref_match:
+        pref = pref_match.group(1).lower()
+        memories["support preference"] = (
+            "phone" if pref == "telephone" else pref
+        )
+
+    # Save order reference
+    order_match = re.search(
+        r"\border\s*(?:number|reference|#)?\s*(?:is\s*)?"
+        r"([A-Z0-9-]{4,})\b",
+        message,
+        re.I
+    )
+
+    if order_match:
+        memories["order reference"] = order_match.group(1)
+
+    # Answer questions about the order
+    if any(q in low for q in [
+        "what is my order number",
+        "what is my order reference",
+        "show my order",
+        "what is my order"
+    ]):
+        if "order reference" in memories:
+            return (
+                f"Your order reference is "
+                f"{memories['order reference']}."
+            )
+        return (
+            "I don't have your order reference saved yet. "
+            "Tell me: My order number is RD123."
+        )
+
+    # Answer questions about the customer's name
+    if any(q in low for q in [
+        "what is my name",
+        "who am i",
+        "remember my name"
+    ]):
+        if "name" in memories:
+            return f"Your name is {memories['name']}."
+        return (
+            "I don't have your name saved yet. "
+            "Tell me: My name is Maya."
+        )
+
+    # Answer questions about support preference
+    if any(q in low for q in [
+        "how do i prefer",
+        "support preference",
+        "how should you contact",
+        "how do you contact"
+    ]):
+        if "support preference" in memories:
+            return (
+                f"You prefer support by "
+                f"{memories['support preference']}."
+            )
+        return (
+            "I don't have a support preference saved yet. "
+            "Tell me: I prefer email support."
+        )
+
+    # Show all saved memories
+    if any(q in low for q in [
+        "what do you remember",
+        "show my memory",
+        "what have you saved"
+    ]):
+        if not memories:
+            return (
+                "I haven't saved any customer details yet. "
+                "Share your name or support preference first."
+            )
+
+        saved = "; ".join(
+            f"{key}: {value}" for key, value in memories.items()
+        )
+        return f"Here is what I have saved: {saved}."
+
+    # Confirm saved details
+    if name_match or pref_match or order_match:
+        saved = ", ".join(
+            f"{key}: {value}"
+            for key, value in memories.items()
+        )
+        return f"Thanks! I saved this in demo memory: {saved}."
+
+    # General delivery response
+    if any(q in low for q in ["delivery", "deliver", "order"]):
+        return (
+            "I can help with your delivery. "
+            "Please share your order reference, "
+            "and I'll keep it in this demo session."
+        )
+
+    return (
+        "I can help with order delivery and remember basic "
+        "customer details in this demo. Try: "
+        "'My name is Maya. I prefer email support.'"
+    )
+
+
+# Display previous messages
+for item in st.session_state.messages:
+    with st.chat_message(item["role"]):
+        st.markdown(item["content"])
+
+
+# Chat input
+prompt = st.chat_input("Type a customer message…")
 
 if prompt:
-    # Display and store the user's message in the chat history.
     st.session_state.messages.append(
         {"role": "user", "content": prompt}
     )
@@ -75,48 +188,19 @@ if prompt:
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    with st.chat_message("assistant"):
-        with st.spinner("Remembering and preparing a response..."):
-            try:
-                # Store the user's message in Hindsight.
-                hindsight.retain(
-                    bank_id=BANK_ID,
-                    content=f"Customer message: {prompt}",
-                    context="RecallDesk AI customer support conversation",
-                )
-
-                # Generate a contextual answer using stored memories.
-                response = hindsight.reflect(
-                    bank_id=BANK_ID,
-                    query=(
-                        "You are RecallDesk AI, a helpful customer "
-                        "support assistant. Answer the customer's "
-                        "latest question using relevant stored memories. "
-                        "If the information is not available, say so "
-                        "and ask for the missing details. Do not invent "
-                        "order numbers, customer details, or policies.\n\n"
-                        f"Customer's latest message: {prompt}"
-                    ),
-                )
-
-                answer = getattr(response, "text", None)
-
-                if not answer:
-                    answer = (
-                        "I couldn't generate a response. "
-                        "Please try asking in a different way."
-                    )
-
-            except Exception as e:
-                answer = (
-                    "⚠️ I couldn't connect to Hindsight or process "
-                    "your request. Please check your API settings "
-                    "and try again."
-                )
-                st.error(f"Connection or memory error: {e}")
-
-            st.markdown(answer)
+    answer = respond(prompt)
 
     st.session_state.messages.append(
         {"role": "assistant", "content": answer}
-)
+    )
+
+    with st.chat_message("assistant"):
+        st.markdown(answer)
+
+
+st.divider()
+st.caption(
+    "Prototype note: This build uses simple in-session demo memory. "
+    "It does not connect to Hindsight Cloud or an external LLM."
+    )
+        
