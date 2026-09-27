@@ -42,8 +42,7 @@ def respond(message: str) -> str:
         pref = pref_match.group(1).lower()
         st.session_state.memories["support preference"] = "phone" if pref == "telephone" else pref
 
-    order_match = re.search(r"\border\s*(?:number|#)?\s*([A-Z0-9-]{4,})", message, re.I)
-    if order_match:
+    order_match = re.search(r"\border\s*(?:number|#)?\s*(?:is\s*)?([A-Z0-9-]{4,})", message, re.I)
         st.session_state.memories["order reference"] = order_match.group(1)
 
     if any(q in low for q in ["what is my name", "who am i", "remember my name"]):
@@ -54,15 +53,20 @@ def respond(message: str) -> str:
         if not st.session_state.memories:
             return "I haven't saved any customer details yet. Share your name or support preference first."
         return "Here is what I have saved: " + "; ".join(f"{k}: {v}" for k, v in st.session_state.memories.items()) + "."
-    if "delivery" in low or "deliver" in low or "order" in low:
-        return "I can help with your delivery. Please share your order reference, and I’ll keep it in this demo session."
-    if name_match or pref_match:
+    
         saved = []
         if "name" in st.session_state.memories: saved.append(f"name: {st.session_state.memories['name']}")
         if "support preference" in st.session_state.memories: saved.append(f"preferred support: {st.session_state.memories['support preference']}")
         return "Thanks — I saved " + " and ".join(saved) + " in the demo memory for this session."
     return "I can help with order delivery and remember basic customer details in this demo. Try: “My name is Maya. I prefer email support.”"
+if any(q in low for q in ["what is my order number", "what is my order reference", "my order number", "show my order"]):
+    if "order reference" in st.session_state.memories:
+        return f"Your order reference is {st.session_state.memories['order reference']}."
+    return "I don't have your order reference saved yet. Tell me: My order number is RD123."
 
+if "delivery" in low or "deliver" in low or "order" in low:
+    return "I can help with your delivery. Please share your order reference, and I'll keep it in this demo session."
+    if name_match or pref_match:
 for item in st.session_state.messages:
     with st.chat_message(item["role"]):
         st.markdown(item["content"])
