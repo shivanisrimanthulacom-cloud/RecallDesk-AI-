@@ -94,9 +94,7 @@ if order_match:
         "what is my order"
     ]):
         if "order reference" in memories:
-            return (
-                f"Your order reference is "
-                f"{memories['order reference']}."
+    return f"Your order reference is {memories['order reference']}."
             )
         return (
             "I don't have your order reference saved yet. "
