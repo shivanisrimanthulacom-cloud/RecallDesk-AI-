@@ -3,7 +3,16 @@
 import streamlit as st
 import re
 from hindsight_client import Hindsight
+# Hindsight Cloud connection
+@st.cache_resource
+def get_hindsight_client():
+    return Hindsight(
+        base_url=st.secrets["HINDSIGHT_BASE_URL"],
+        api_key=st.secrets["HINDSIGHT_API_KEY"]
+    )
 
+hindsight = get_hindsight_client()
+HINDSIGHT_BANK_ID = st.secrets["HINDSIGHT_BANK_ID"]
 
 # ---------------- PAGE CONFIGURATION ----------------
 st.set_page_config(
