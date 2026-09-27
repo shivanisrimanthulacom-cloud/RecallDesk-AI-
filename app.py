@@ -13,7 +13,15 @@ def get_hindsight_client():
 
 hindsight = get_hindsight_client()
 HINDSIGHT_BANK_ID = st.secrets["HINDSIGHT_BANK_ID"]
-
+if st.button("Test Hindsight Connection"):
+    try:
+        result = hindsight.recall(
+            bank_id=HINDSIGHT_BANK_ID,
+            query="Test connection"
+        )
+        st.success("Hindsight connection successful!")
+    except Exception as e:
+        st.error(f"Connection failed: {e}")
 # ---------------- PAGE CONFIGURATION ----------------
 st.set_page_config(
     page_title="RecallDesk AI",
