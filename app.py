@@ -75,14 +75,16 @@ def respond(message: str) -> str:
 
     # Save order reference
     order_match = re.search(
-        r"\border\s*(?:number|reference|#)?\s*(?:is\s*)?"
-        r"([A-Z0-9-]{4,})\b",
-        message,
-        re.I
-    )
+    r"\border\s+(?:number|reference)\s*(?:is\s*)?#?\s*([A-Z0-9-]{4,})\b"
+    r"|\border\s+#\s*([A-Z0-9-]{4,})\b",
+    message,
+    re.I
+)
 
-    if order_match:
-        memories["order reference"] = order_match.group(1)
+if order_match:
+    order_ref = order_match.group(1) or order_match.group(2)
+    memories["order reference"] = order_ref
+    
 
     # Answer questions about the order
     if any(q in low for q in [
