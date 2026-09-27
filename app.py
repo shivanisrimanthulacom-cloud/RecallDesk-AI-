@@ -1,6 +1,9 @@
 
+
 import streamlit as st
 import re
+from hindsight_client import Hindsight
+
 
 # ---------------- PAGE CONFIGURATION ----------------
 st.set_page_config(
